@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+	<title>AgeisLibrary</title>
+</head>
+
+<body style="background: #f4f7f6;">
+
+<!--Navigation bar-->
+<nav class="navbar navbar-dark bg-dark px-4">
+    <span class="navbar-brand">AgeisLibrary</span>
+    <a href="/dashboard" class="btn btn-outline-light btn-sm">Back to Dashboard</a>
+</nav>
+
+<div class="container mt-5">
+
+    <!--For warning message-->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show small">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div class="row">
+
+        <!--User information-->
+        <div class="col-md-4">
+
+            <div class="card p-4 shadow-sm text-center mb-4">
+                <div class="mb-3"><span style="font-size: 60px;">👤</span></div>
+                <h4>{{ user.username }}</h4>
+                <p class="text-muted">{{ user.email }}</p>
+                <span class="badge bg-primary">{{ user.role|upper }}</span>
+                <hr>
+                <p class="small">
+                    Account Status: <span class="text-success">Verified ✅</span>
+                </p>
+            </div>
+
+            <!--Change user passowrd-->
+            <div class="card p-4 shadow-sm">
+                <h5 class="mb-3">🔒 Change Password</h5>
+
+                <form method="POST">
+
+                    <!--Insert old password first-->
+                    <div class="mb-2 position-relative">
+                        <input type="password" name="old_password"
+                               id="oldPasswordInput"
+                               class="form-control"
+                               placeholder="Current Password"
+                               required>
+
+                        <span onclick="togglePassword('oldPasswordInput', this)"
+                              style="position:absolute; right:12px; top:50%; transform:translateY(-50%); cursor:pointer;">
+                            <i class="fa-solid fa-eye"></i>
+                        </span>
+                    </div>
+
+                    <!--New password here-->
+                    <div class="mb-2 position-relative">
+                        <input type="password" name="new_password"
+                               id="newPasswordInput"
+                               class="form-control"
+                               placeholder="New Password"
+                               required
+                               onkeyup="checkStrength()">
+
+                        <span onclick="togglePassword('newPasswordInput', this)"
+                              style="position:absolute; right:12px; top:50%; transform:translateY(-50%); cursor:pointer;">
+                            <i class="fa-solid fa-eye"></i>
+                        </span>
+
+                        <small id="strengthText" class="text-muted"></small>
+                    </div>
+
+                    <!--Confrm password-->
+                    <div class="mb-3 position-relative">
+                        <input type="password" name="confirm_password"
+                               id="confirmPasswordInput"
+                               class="form-control"
+                               placeholder="Confirm New Password"
+                               required
+                               onkeyup="checkMatch()">
+
+                        <span onclick="togglePassword('confirmPasswordInput', this)"
+                              style="position:absolute; right:12px; top:50%; transform:translateY(-50%); cursor:pointer;">
+                            <i class="fa-solid fa-eye"></i>
+                        </span>
+
+                        <small id="matchText" class="text-muted"></small>
+                    </div>
+
+                    <button class="btn btn-dark w-100">Update Password</button>
+
+                </form>
+            </div>
+        </div>
+
+        <!--List of borrowed book(s)-->
+        <div class="col-md-8">
+
+            <div class="card p-4 shadow-sm" style="min-height: 500px;">
+                <h4 class="mb-4">📚 My Borrowed Items</h4>
+
+                {% if books %}
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Title</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for book in books %}
+                        <tr>
+                            <td><code>{{ book.book_id }}</code></td>
+                            <td>{{ book.title }}</td>
+                            <td>
+                                <form action="/return/{{ book.book_id }}" method="POST">
+                                    <button class="btn btn-sm btn-outline-danger">
+                                        Return Now
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                {% else %}
+                <div class="text-center mt-5 text-muted">
+                    <p>You haven't borrowed any books yet.</p>
+                    <a href="/dashboard" class="btn btn-primary">Browse Library</a>
+                </div>
+                {% endif %}
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!--Javascript function for password-->
+<script>
+function togglePassword(inputId, iconWrapper) {
+    const input = document.getElementById(inputId);
+    const icon = iconWrapper.querySelector("i");
+
+    if (input.type === "password") {
+        input.type = "text";
+        icon.classList.remove("fa-eye");
+        icon.classList.add("fa-eye-slash");
+    } else {
+        input.type = "password";
+        icon.classList.remove("fa-eye-slash");
+        icon.classList.add("fa-eye");
+    }
+}
+
+function checkStrength() {
+    const password = document.getElementById("newPasswordInput").value;
+    const text = document.getElementById("strengthText");
+
+    if (password.length === 0) {
+        text.innerText = "";
+    } else if (password.length < 8) {
+        text.innerText = "Weak password";
+        text.className = "text-danger small";
+    } else if (/[A-Z]/.test(password) && /[0-9]/.test(password)) {
+        text.innerText = "Strong password";
+        text.className = "text-success small";
+    } else {
+        text.innerText = "Medium password";
+        text.className = "text-warning small";
+    }
+}
+
+function checkMatch() {
+    const pass = document.getElementById("newPasswordInput").value;
+    const confirm = document.getElementById("confirmPasswordInput").value;
+    const text = document.getElementById("matchText");
+
+    if (confirm.length === 0) {
+        text.innerText = "";
+    } else if (pass === confirm) {
+        text.innerText = "Passwords match";
+        text.className = "text-success small";
+    } else {
+        text.innerText = "Passwords do not match";
+        text.className = "text-danger small";
+    }
+}
+</script>
+
+</body>
+</html>

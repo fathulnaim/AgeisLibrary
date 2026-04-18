@@ -1,0 +1,15 @@
+Now, launch the application:
+In the same terminal, type:
+
+python app.py
+
+You will see a message: * Running on http://127.0.0.1:5000
+Do not close this terminal! If you close it, the website stops working.
+
+Step 6: Access the System
+Open your web browser (Chrome, Edge, etc.).
+In the address bar, type: http://127.0.0.1:5000
+You should see your Beautified Login Page.
+
+(Username: admin | Password: admin123)
+(Username: student01 | Password: student123)
