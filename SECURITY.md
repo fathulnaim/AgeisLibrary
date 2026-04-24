@@ -1,9 +1,8 @@
 ---
 
-### 2. File: `SECURITY.md`
+### SECURITY.md
 This file explains the technical security details for auditors or advanced users.
 
-```markdown
 # Security Policy & Implementation Details
 
 ## 1. Authentication & Session Management
