@@ -39,3 +39,24 @@ AegisLibrary implements multiple defensive layers to ensure the "Confidentiality
    ```bash
    git clone https://github.com/yourusername/AegisLibrary.git
    cd AegisLibrary
+   
+2. **Clone the repository:**
+   ```bash
+   pip install flask werkzeug
+
+3. **Database Initialization:**
+   ```bash
+   python init_db.py
+
+4. **Launch:**
+   ```bash
+   python app.py
+Access the portal at: http://127.0.0.1:5000
+
+## 🔑 Demo Credentials
+
+| Role | Username | Password |
+| :--- | :--- | :--- |
+| **Administrator** | `admin` | `admin123` |
+
+> **Note:** MFA codes and Reset OTPs are outputted to the **Server Terminal Console** for simulation purposes.
