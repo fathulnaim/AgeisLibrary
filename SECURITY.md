@@ -1,4 +1,5 @@
 ---
+# Security Policy & Implementation Details
 
 ## 1. Authentication & Session Management
 AegisLibrary utilizes a state-based authentication workflow to prevent session hijacking:
