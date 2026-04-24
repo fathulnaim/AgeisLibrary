@@ -1,10 +1,5 @@
 ---
 
-### SECURITY.md
-This file explains the technical security details for auditors or advanced users.
-
-# Security Policy & Implementation Details
-
 ## 1. Authentication & Session Management
 AegisLibrary utilizes a state-based authentication workflow to prevent session hijacking:
 *   **Step 1:** Primary credentials are verified against stored hashes.
