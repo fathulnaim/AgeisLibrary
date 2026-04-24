@@ -1,0 +1,11 @@
+
+# Ignore the local database file
+library.db
+
+# Ignore Python cache
+__pycache__/
+*.py[cod]
+
+# Ignore environment variables
+.env
+instance/
