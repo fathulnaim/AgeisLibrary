@@ -16,3 +16,11 @@ CREATE TABLE books (
     status TEXT NOT NULL,      -- 'Available' or 'Borrowed'
     borrowed_by TEXT
 );
+
+CREATE TABLE IF NOT EXISTS logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    username TEXT,
+    activity TEXT,
+    details TEXT
+);

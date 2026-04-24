@@ -21,6 +21,15 @@ def get_db():
     conn.row_factory = sqlite3.Row
     return conn
 
+def add_log(username, activity, details=""):
+    try:
+        db = get_db()
+        db.execute("INSERT INTO logs (username, activity, details) VALUES (?, ?, ?)", 
+                   (username, activity, details))
+        db.commit()
+    except Exception as e:
+        print(f"Logging Error: {e}")
+
 #Hint for OTP/MFA
 def mask_email(email):
     try:
@@ -133,8 +142,10 @@ def login():
         session['temp_user'] = username
         session['temp_email'] = user['email'] # Store email for MFA display
         session['temp_role'] = user['role']
+        add_log(username, "Login Attempt", "Successful password entry, moving to MFA")
         return redirect('/send_mfa')
     
+    add_log(username if username else "Unknown", "Login Failed", "Invalid credentials entered")
     flash("Invalid credentials!", "danger")
     return render_template('login.html', username=username)
 
@@ -266,7 +277,9 @@ def mfa():
 @app.route('/search', methods=['POST'])
 def search():
     query = request.form.get('book_id')
-    
+    current_user = session.get('user', 'Guest')
+    add_log(current_user, "Book Search", f"Keyword used: {query}")
+
     # Help to prevent buffer overflow
     if len(query) > 50:
         flash("SECURITY ALERT: Search buffer exceeded! (Max 50 characters)")
@@ -331,6 +344,7 @@ def add_book():
         try:
             db.execute("INSERT INTO books VALUES (?, ?, ?, 'Available', NULL)", (bid, title, cat))
             db.commit()
+            add_log(session['user'], "ADMIN Action: Add Book", f"Added Book ID: {bid}")
             flash("Success: Book added.")
             return redirect('/admin') # Use redirect on success to clear the form
         except Exception as e:
@@ -351,6 +365,7 @@ def borrow():
     db.execute("UPDATE books SET status = 'Borrowed' WHERE book_id = ?", (bid,))
     db.commit()
     # Inside admin routes:
+    add_log(session['user'], "ADMIN Action: Borrow Book", f"Borrowed Book ID: {bid}")
     flash("Action Completed Successfully!", "success")
     return redirect('/admin')
 
@@ -366,6 +381,7 @@ def return_b():
     db.execute("UPDATE books SET status = 'Available', borrowed_by = NULL WHERE book_id = ?", (bid,))
     db.commit()
     
+    add_log(session['user'], "ADMIN Action: Return Book", f"Returned Book ID: {bid}")
     flash(f"Management Alert: Book {bid} has been forcibly returned by Admin.")
     return redirect('/admin')
 
@@ -377,6 +393,7 @@ def delete_book():
     db = get_db()
     db.execute("DELETE FROM books WHERE book_id = ?", (bid,))
     db.commit()
+    add_log(session['user'], "ADMIN Action: Delete Book", f"Added Book ID: {bid}")
     flash("Book deleted!")
     return redirect('/admin')
 
@@ -395,6 +412,7 @@ def student_borrow(book_id):
         db.execute("UPDATE books SET status = 'Borrowed', borrowed_by = ? WHERE book_id = ?", 
                (session['user'], book_id))
         db.commit()
+        add_log(session['user'], "Borrow Book", f"Book ID: {book_id}")
         flash(f"Success! You have borrowed {book_id}", "success")
     else:
         flash("This book is already borrowed by someone else!")
@@ -409,6 +427,7 @@ def student_return(book_id):
     db = get_db()
     db.execute("UPDATE books SET status = 'Available', borrowed_by = NULL WHERE book_id = ?", (book_id,))
     db.commit()
+    add_log(session['user'], "Return Book", f"Book ID: {book_id}")
     flash(f"Book {book_id} has been returned. Thank you!", "success")
     return redirect('/dashboard')
 
@@ -433,14 +452,25 @@ def profile():
                 hashed = generate_password_hash(new_pass)
                 db.execute("UPDATE users SET password_hash = ? WHERE username = ?", (hashed, session['user']))
                 db.commit()
-                flash("Password updated successfully!")
+                add_log(session['user'], "Security Action: Password Changed", "User successfully updated their password.")
+                flash("Password updated successfully!", "success")
             else:
-                flash("New password too short!")
+                add_log(session['user'], "Security Alert: Password Change Failed", "Attempted to use a password shorter than 8 characters.")
+                flash("New password too short!", "warning")
         else:
-            flash("Current password incorrect!")
+            add_log(session['user'], "Security Alert: Password Change Failed", "Incorrect current password entered.")
+            flash("Current password incorrect!", "danger")
         return redirect('/profile')
 
     return render_template('profile.html', user=user_info, books=my_books)
+
+@app.route('/admin/logs')
+def admin_logs():
+    if session.get('role') != 'admin': return redirect('/')
+    db = get_db()
+    # Fetch logs, latest first
+    all_logs = db.execute("SELECT * FROM logs ORDER BY timestamp DESC").fetchall()
+    return render_template('admin_logs.html', logs=all_logs)
 
 @app.route('/logout')
 def logout():
