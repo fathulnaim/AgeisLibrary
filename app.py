@@ -180,7 +180,7 @@ def forgot_password():
 def verify_reset_otp():
     if 'reset_otp' not in session: return redirect('/forgot_password')
     
-    # Check for expiration (60 seconds)
+    # Check for expiration (60 seconds) no reset, redirect to email page
     now = time.time()
     start_time = session.get('reset_time', now)
     elapsed = now - start_time
