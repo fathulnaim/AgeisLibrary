@@ -79,7 +79,7 @@
                             <i class="fa-solid fa-eye"></i>
                         </span>
                     </div>
-
+					<small>Use at least 8 characters with uppercase, lowercase, number, and symbol (e.g., Secure1!).</small><br>
                     <small id="strengthText" class="text-muted"></small>
                 </div>
 
@@ -164,7 +164,7 @@ function validateForm() {
         strong = true;
     } 
     else {
-        strengthText.innerText = "Medium password (not allowed)";
+        strengthText.innerText = "Medium (add caps, numbers & symbols)";
         strengthText.className = "text-warning small";
     }
 

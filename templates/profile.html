@@ -63,14 +63,14 @@
                     <!-- new password -->
                     <div class="mb-2 position-relative">
                         <input type="password" name="new_password" id="newPasswordInput"
-                               class="form-control" placeholder="New Password"
+                               class="form-control" placeholder="Minimum 8 characters with caps letter, symbol and number"
                                required onkeyup="validateForm()">
 
                         <span onclick="togglePassword('newPasswordInput', this)"
                               style="position:absolute; right:12px; top:50%; transform:translateY(-50%); cursor:pointer;">
                             <i class="fa-solid fa-eye"></i>
                         </span>
-
+						<small>Use at least 8 characters with uppercase, lowercase, number, and symbol (e.g., Secure1!).</small><br>
                         <small id="strengthText" class="small"></small>
                     </div>
 
