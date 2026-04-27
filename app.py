@@ -388,7 +388,7 @@ def search():
 
     if not is_valid_input(query, 50, r"^[a-zA-Z0-9 ]*$"):
         flash("Input Validation Error: Invalid characters detected.", "danger")
-        add_log(session['user'],"Input Validation Failed",f"Keyword rejected: {query} | Reason: Invalid characters / Harmful pattern detected")
+        add_log(current_user,"Input Validation Failed",f"Keyword rejected: {query} | Reason: Invalid characters / Harmful pattern detected")
         return redirect(url_for('home'))
 
     db = get_db()
