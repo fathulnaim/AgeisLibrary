@@ -75,49 +75,61 @@
                 </div>
 
                 <div class="table-responsive">
-                    <table class="table table-hover align-middle">
-                        <thead class="table-light">
-                            <tr class="small text-uppercase text-muted">
-                                <th>Book ID</th>
-                                <th>Title Info</th>
-                                <th>Status</th>
-                                <th>Currently With</th>
-                                <th class="text-center">Management Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for book in books %}
-                                <tr>
-                                    <td><code class="fw-bold text-dark">{{ book['book_id'] }}</code></td>
-                                    <td>
-                                        <div class="fw-bold text-primary">{{ book['title'] }}</div>
-                                        <div class="text-muted" style="font-size: 0.75rem;">{{ book['category'] }}</div>
-                                    </td>
-                                    <td>
-                                        <span class="badge {{ 'bg-success' if book['status'] == 'Available' else 'bg-warning text-dark' }} px-3">
-                                            {{ book['status'] }}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        {% if book['borrowed_by'] %}
-                                            <div class="d-flex align-items-center">
-                                                <div class="bg-primary rounded-circle text-white d-flex align-items-center justify-content-center me-2" style="width: 25px; height: 25px; font-size: 0.7rem;">
-                                                    {{ book['borrowed_by'][0]|upper }}
-                                                </div>
-                                                <span class="fw-bold text-dark" style="font-size: 0.85rem;">{{ book['borrowed_by'] }}</span>
-                                            </div>
-                                        {% else %}
-                                            <span class="text-muted small"><em>In Library</em></span>
-                                        {% endif %}
-                                    </td>
+					<table class="table table-hover align-middle">
+						<thead class="table-light">
+							<tr class="small text-uppercase text-muted">
+								<th>Book ID</th>
+								<th>Title Info</th>
+								<th>Status & Due Date</th> <!-- Kemaskini Header -->
+								<th>Currently With</th>
+								<th class="text-center">Management Actions</th>
+							</tr>
+						</thead>
+						<tbody>
+							{% for book in books %}
+								<tr>
+									<td><code class="fw-bold text-dark">{{ book['book_id'] }}</code></td>
+									<td>
+										<div class="fw-bold text-primary">{{ book['title'] }}</div>
+										<div class="text-muted" style="font-size: 0.75rem;">{{ book['category'] }}</div>
+									</td>
+									<td>
+										<span class="badge {{ 'bg-success' if book['status'] == 'Available' else 'bg-warning text-dark' }} px-3">
+											{{ book['status'] }}
+										</span>
+										<!-- PAPARAN TARIKH TAMAT UNTUK ADMIN -->
+										{% if book['status'] == 'Borrowed' and book['due_date'] %}
+											<div class="mt-1 small text-danger fw-bold" style="font-size: 0.7rem;">
+												Due: {{ book['due_date'] }}
+											</div>
+										{% endif %}
+									</td>
+									<td>
+										{% if book['borrowed_by'] %}
+											<div class="d-flex align-items-center">
+												<div class="bg-primary rounded-circle text-white d-flex align-items-center justify-content-center me-2" style="width: 25px; height: 25px; font-size: 0.7rem;">
+													{{ book['borrowed_by'][0]|upper }}
+												</div>
+												<span class="fw-bold text-dark" style="font-size: 0.85rem;">{{ book['borrowed_by'] }}</span>
+											</div>
+										{% else %}
+											<span class="text-muted small"><em>In Library</em></span>
+										{% endif %}
+									</td>
                                     <td class="text-center">
                                         <div class="btn-group shadow-sm">
                                             {% if book['status'] == 'Available' %}
-                                                <form action="/admin/borrow" method="POST">
-                                                    <input type="hidden" name="book_id" value="{{ book['book_id'] }}">
-                                                    <button class="btn btn-sm btn-outline-primary" title="Borrow">Borrow</button>
-                                                </form>
-                                            {% endif %}
+												<form action="/admin/borrow" method="POST" class="d-flex gap-1 mb-1">
+													<input type="hidden" name="book_id" value="{{ book['book_id'] }}">
+													<select name="duration" class="form-select form-select-sm" style="width: 90px; font-size: 0.7rem;">
+														<option value="3">3 days</option>
+														<option value="7" selected>7 days</option>
+														<option value="14">14 days</option>
+														<option value="21">21 days</option>
+													</select>
+													<button class="btn btn-sm btn-outline-primary" title="Borrow">Borrow</button>
+												</form>
+											{% endif %}
                                             <form action="/admin/return" method="POST">
                                                 <input type="hidden" name="book_id" value="{{ book['book_id'] }}">
                                                 <button class="btn btn-sm btn-outline-info" {% if book['status'] == 'Available' %}disabled{% endif %} title="Admin Return">

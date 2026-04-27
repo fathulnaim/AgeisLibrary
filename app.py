@@ -5,6 +5,7 @@ import re
 import random
 import time
 import os
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", os.urandom(24))
@@ -444,7 +445,7 @@ def add_book():
         # Validate search input
     if is_valid_input(bid, 8) and is_valid_input(title, 50, r"^[a-zA-Z0-9\s.,-/]*$"):
         try:
-            db.execute("INSERT INTO books VALUES (?, ?, ?, 'Available', NULL)", (bid, title, cat))
+            db.execute("INSERT INTO books VALUES (?, ?, ?, 'Available', NULL, NULL)", (bid, title, cat))
             db.commit()
             add_log(session['user'], "ADMIN Action: Add Book", f"Added Book ID: {bid}")
             flash("Success: Book added.", "success")
@@ -462,15 +463,20 @@ def add_book():
 @app.route('/admin/borrow', methods=['POST'])
 def borrow():
     if session.get('role') != 'admin': return redirect('/')
+    
     bid = request.form.get('book_id')
+    duration = int(request.form.get('duration', 7)) 
+    
     db = get_db()
-    db.execute("UPDATE books SET status = 'Borrowed' WHERE book_id = ?", (bid,))
+    due_date = (datetime.now() + timedelta(days=duration)).strftime('%Y-%m-%d')
+    
+    db.execute("UPDATE books SET status = 'Borrowed', borrowed_by = ?, due_date = ? WHERE book_id = ?", 
+               (session['user'], due_date, bid))
     db.commit()
-    # Inside admin routes:
-    add_log(session['user'], "ADMIN Action: Borrow Book", f"Borrowed Book ID: {bid}")
-    flash("Action Completed Successfully!", "success")
+    
+    add_log(session['user'], "ADMIN Action: Borrow Book", f"Book ID: {bid} (Due: {due_date})")
+    flash(f"Book borrowed for {duration} days. Due: {due_date}", "success")
     return redirect('/admin')
-
 # Return for admin
 @app.route('/admin/return', methods=['POST'])
 def return_b():
@@ -479,8 +485,7 @@ def return_b():
     bid = request.form.get('book_id')
     db = get_db()
     
-    # Parameterized query here
-    db.execute("UPDATE books SET status = 'Available', borrowed_by = NULL WHERE book_id = ?", (bid,))
+    db.execute("UPDATE books SET status = 'Available', borrowed_by = NULL, due_date = NULL WHERE book_id = ?", (bid,))
     db.commit()
     
     add_log(session['user'], "ADMIN Action: Return Book", f"Returned Book ID: {bid}")
@@ -536,19 +541,25 @@ def delete_book():
 def student_borrow(book_id):
     if 'user' not in session: return redirect('/')
     
+    # 1. Ambil durasi dari pilihan student (3, 7, 14, 21)
+    duration_days = int(request.form.get('duration', 7)) 
+    
+    # 2. Kira tarikh pulangkan (Hari ini + X hari)
+    due_date = (datetime.now() + timedelta(days=duration_days)).strftime('%Y-%m-%d')
+    
     db = get_db()
-    # Check if book is already borrowed (Semantic Validation)
     book = db.execute("SELECT status FROM books WHERE book_id = ?", (book_id,)).fetchone()
     
     if book and book['status'] == 'Available':
-        # Update status and record who borrowed it
-        db.execute("UPDATE books SET status = 'Borrowed', borrowed_by = ? WHERE book_id = ?", 
-               (session['user'], book_id))
+
+        db.execute("UPDATE books SET status = 'Borrowed', borrowed_by = ?, due_date = ? WHERE book_id = ?", 
+               (session['user'], due_date, book_id))
         db.commit()
-        add_log(session['user'], "Borrow Book", f"Book ID: {book_id}")
-        flash(f"Success! You have borrowed {book_id}", "success")
+        
+        add_log(session['user'], "Borrow Book", f"ID: {book_id}, Due: {due_date} ({duration_days} days)")
+        flash(f"Borrowed! Please return by {due_date}", "success")
     else:
-        flash("This book is already borrowed by someone else!", "danger")
+        flash("Book is not available.", "danger")
         
     return redirect('/dashboard')
 
@@ -558,8 +569,9 @@ def student_return(book_id):
     if 'user' not in session: return redirect('/')
     
     db = get_db()
-    db.execute("UPDATE books SET status = 'Available', borrowed_by = NULL WHERE book_id = ?", (book_id,))
+    db.execute("UPDATE books SET status = 'Available', borrowed_by = NULL, due_date = NULL WHERE book_id = ?", (book_id,))
     db.commit()
+    
     add_log(session['user'], "Return Book", f"Book ID: {book_id}")
     flash(f"Book {book_id} has been returned. Thank you!", "success")
     return redirect('/dashboard')
