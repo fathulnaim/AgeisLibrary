@@ -1,20 +1,21 @@
--- schema.sql
+-- schema.sql (Updated)
 DROP TABLE IF EXISTS users;
 DROP TABLE IF EXISTS books;
 
 CREATE TABLE users (
-    username TEXT PRIMARY KEY, -- Limited to 30 chars in app.py
-    email TEXT NOT NULL,         -- Used for OTP/MFA delivery
+    username TEXT PRIMARY KEY,
+    email TEXT NOT NULL,
     password_hash TEXT NOT NULL,
-    role TEXT NOT NULL -- 'admin' or 'user'
+    role TEXT NOT NULL
 );
 
 CREATE TABLE books (
-    book_id TEXT PRIMARY KEY, -- SCENARIO 3: Strictly 8 chars limit
+    book_id TEXT PRIMARY KEY,
     title TEXT NOT NULL,
-    category TEXT NOT NULL,   -- Science, Math, etc.
-    status TEXT NOT NULL,      -- 'Available' or 'Borrowed'
-    borrowed_by TEXT
+    category TEXT NOT NULL,
+    status TEXT NOT NULL,
+    borrowed_by TEXT,
+    due_date TEXT  -- <--- TAMBAHKAN INI (Simpan tarikh dalam format YYYY-MM-DD)
 );
 
 CREATE TABLE IF NOT EXISTS logs (
