@@ -160,7 +160,7 @@ def mfa():
     if request.method == 'POST':
         # --- SCENARIO 1: EXPIRED OTP ---
         if remaining <= 0:
-            add_log(username, "MFA Verification", "Failed - Code Expired")
+            add_log(username, "MFA Verification Failed", "Failed - Code Expired")
             flash("OTP Expired! Please click the 'Resend' button.", "danger")
             return render_template('mfa.html', remaining_time=0, 
                                    attempts=session.get('mfa_attempts'),
@@ -184,11 +184,11 @@ def mfa():
             session['mfa_attempts'] = session.get('mfa_attempts', 3) - 1
             
             if session['mfa_attempts'] <= 0:
-                add_log(username, "MFA Verification", "Blocked - Too many wrong codes")
+                add_log(username, "MFA Verification Blocked", "Blocked - Too many wrong codes")
                 session.clear() # Kill everything for security
                 flash("Too many failed attempts. Identity could not be verified. Please log in again.", "danger")
                 return redirect('/login_page')
-            add_log(username, "MFA Verification", f"Failed - Wrong code. {session['mfa_attempts']} tries left")
+            add_log(username, "MFA Verification Failed", f"Failed - Wrong code. {session['mfa_attempts']} tries left")
             flash(f"Invalid Code! {session['mfa_attempts']} tries remaining.", "danger")
             
     return render_template('mfa.html', 
@@ -202,7 +202,7 @@ def resend_mfa():
     username = session.get('temp_user')
     resends = session.get('mfa_resends', 0)
     if resends >= 3:
-        add_log(username, "MFA Resend", "Blocked - Max resends reached")
+        add_log(username, "MFA Resend Blocked", "Blocked - Max resends reached")
         session.clear()
         flash("Resend limit reached. For security, please wait and log in again later.", "danger")
         return redirect('/login_page')
@@ -271,7 +271,7 @@ def forgot_password():
             return redirect('/verify_reset_otp')
         else:
             # LOG: Failed attempt to find email
-            add_log(email, "Reset Requested", "Failed - Email not found in DB")
+            add_log(email, "Reset Request Failed", "Failed - Email not found in DB")
             flash("Error: That email is not registered.", "danger")
             
     return render_template('forgot_password.html')
@@ -286,7 +286,7 @@ def verify_reset_otp():
     if request.method == 'POST':
         # 1. Check if expired
         if remaining <= 0:
-            add_log(email, "OTP Verification", "Failed - Code Expired")
+            add_log(email, "OTP Verification Failed", "Failed - Code Expired")
             flash("Code expired! Please resend.", "danger")
             return render_template('verify_reset_otp.html', remaining_time=0, attempts=session.get('reset_attempts'))
 
@@ -304,12 +304,12 @@ def verify_reset_otp():
             session['reset_attempts'] = session.get('reset_attempts', 3) - 1
             
             if session['reset_attempts'] <= 0:
-                add_log(email, "OTP Verification", "Account Locked - Max Attempts reached")
+                add_log(email, "OTP Verification Blocked", "Account Locked - Max Attempts reached")
                 session.clear()
                 flash("Too many failed attempts. Start over.", "danger")
                 return redirect('/forgot_password')
             
-            add_log(email, "OTP Verification", f"Failed - Wrong code. {session['reset_attempts']} tries left")
+            add_log(email, "OTP Verification Failed", f"Failed - Wrong code. {session['reset_attempts']} tries left")
             flash(f"Invalid code! {session['reset_attempts']} tries left.", "danger")
 
     return render_template('verify_reset_otp.html', 
@@ -324,7 +324,7 @@ def resend_reset_otp():
     # Check resend limit
     resend_count = session.get('reset_resend_count', 0)
     if resend_count >= 3:
-        add_log(email, "OTP Resend", "Blocked - Max resends reached")
+        add_log(email, "OTP Resend Blocked", "Blocked - Max resends reached")
         flash("Too many resends. Please try again later.", "danger")
         return redirect('/forgot_password')
 
@@ -419,45 +419,45 @@ def admin():
 # Admin add new book
 @app.route('/admin/add', methods=['POST'])
 def add_book():
-    if session.get('role') != 'admin': return redirect('/')
-    
+    if session.get('role') != 'admin':
+        return redirect('/')
+
     bid = request.form.get('book_id', '')
     title = request.form.get('title', '')
     cat = request.form.get('category', '')
 
     db = get_db()
 
-    # Buffer overflow prevention
-    if len(bid) > 8:
-        flash("CRITICAL: Buffer Overflow! Book ID is too long (Max 8).", "danger")
-        add_log(session['user'],"Buffer Overflow Attempt Blocked",
-        f"Add Book rejected | Book ID: {bid} | Reason: Input size exceeds limit")
-        # Fetch list of books
-        all_books = db.execute("SELECT * FROM books").fetchall()
-        
-        # Now we send EVERYTHING: stats (if needed), books list, and sticky data
-        return render_template('admin.html', 
-                               books=all_books, 
-                               bid=bid, 
-                               title=title, 
-                               cat=cat)
+    try:
+        # validation FIRST (clean flow)
+        if len(bid) > 8:
+            flash("CRITICAL: Book ID too long (Max 8).", "danger")
+            add_log(session['user'], "Buffer Overflow Attempt Blocked",
+                    f"Book ID: {bid}")
 
-        # Validate search input
-    if is_valid_input(bid, 8) and is_valid_input(title, 50, r"^[a-zA-Z0-9\s.,-/]*$"):
-        try:
-            db.execute("INSERT INTO books VALUES (?, ?, ?, 'Available', NULL, NULL)", (bid, title, cat))
-            db.commit()
-            add_log(session['user'], "ADMIN Action: Add Book", f"Added Book ID: {bid}")
-            flash("Success: Book added.", "success")
-            return redirect('/admin') # Use redirect on success to clear the form
-        except Exception as e:
-            flash("Error: Database Collision (ID already exists).", "danger")
-            all_books = db.execute("SELECT * FROM books").fetchall()
-            return render_template('admin.html', books=all_books, sticky_bid=bid, sticky_title=title)
-    else:
-        flash("Validation Error: Invalid characters detected.", "danger")
-        all_books = db.execute("SELECT * FROM books").fetchall()
-        return render_template('admin.html', books=all_books, sticky_bid=bid, sticky_title=title)
+            return redirect('/admin')
+
+        if not is_valid_input(bid, 8) or not is_valid_input(title, 50, r"^[a-zA-Z0-9\s.,-/]*$"):
+            flash("Validation Error: Invalid characters detected.", "danger")
+            return redirect('/admin')
+
+        db.execute(
+            "INSERT INTO books VALUES (?, ?, ?, 'Available', NULL, NULL)",
+            (bid, title, cat)
+        )
+        db.commit()
+
+        add_log(session['user'], "ADMIN Action: Add Book", f"Added Book ID: {bid}")
+        flash("Success: Book added.", "success")
+
+        return redirect('/admin')
+
+    except Exception:
+        flash("Error: Book ID already exists or DB error.", "danger")
+        return redirect('/admin')
+
+    finally:
+        db.close()
 
 # Borrow for admin
 @app.route('/admin/borrow', methods=['POST'])
