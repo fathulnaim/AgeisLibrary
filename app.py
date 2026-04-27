@@ -255,28 +255,33 @@ def send_mfa():
 def mfa():
     if 'mfa_code' not in session: return redirect('/')
     
-    # Check the time
-    current_time = time.time()
-    created_time = session.get('mfa_time', 0)
+    # 1. Calculate time remaining
+    now = time.time()
+    # If mfa_time isn't set yet, use 'now' as fallback
+    start_time = session.get('mfa_time', now) 
+    remaining = int(60 - (now - start_time))
     
-    if current_time - created_time > 60:
+    # 2. Check for expiration
+    if remaining <= 0:
         session.pop('mfa_code', None)
-        flash("OTP Expired! A new code has been generated and sent.")
-        return redirect('/send_mfa') # Auto-generate new code
+        flash("OTP Expired! Please try logging in again.", "danger")
+        return redirect('/') # Or wherever you want them to go
 
     if request.method == 'POST':
         user_code = request.form.get('code')
         if user_code == session.get('mfa_code'):
             session['user'] = session['temp_user']
-            session['role'] = session['temp_role']
             session.pop('mfa_code', None)
+            session.pop('mfa_time', None)
             return redirect('/dashboard')
         else:
-            flash("Invalid Code!")
+            flash("Invalid Code!", "danger") 
             
     email_hint = mask_email(session.get('temp_email', 'user@mail.com'))
-    return render_template('mfa.html', email_hint=email_hint)
-
+    
+    return render_template('mfa.html', 
+                           email_hint=email_hint, 
+                           remaining_time=remaining)
 # Search route
 
 @app.route('/search', methods=['POST'])
