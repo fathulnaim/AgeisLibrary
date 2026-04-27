@@ -4,12 +4,12 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-	<title>AgeisLibrary</title>
+    <title>AgeisLibrary</title>
 </head>
 
 <body>
 
-<!--Navigation bar here-->
+<!-- Navigation -->
 <nav class="navbar navbar-dark bg-dark px-4 shadow-sm">
     <span class="navbar-brand fw-bold">AgeisLibrary</span>
     <div>
@@ -20,7 +20,7 @@
 <div class="container">
     <div class="row login-container">
 
-        <!--Picture on the left-->
+        <!-- Left side -->
         <div class="col-md-6 login-image d-flex align-items-center justify-content-center text-center">
             <div>
                 <h1>Join Us</h1>
@@ -28,11 +28,11 @@
             </div>
         </div>
 
-        <!--Signup-->
+        <!-- Signup form -->
         <div class="col-md-6 p-5">
             <h2 class="mb-4">Create Account</h2>
 
-            <!--Message-->
+            <!-- Flash messages -->
             {% with messages = get_flashed_messages(with_categories=true) %}
               {% if messages %}
                 {% for category, message in messages %}
@@ -46,24 +46,24 @@
 
             <form action="/signup" method="POST">
 
-                <!--User enter username-->
+                <!-- Username -->
                 <div class="mb-3">
                     <label>Choose Username</label>
                     <input type="text" name="username" class="form-control"
                            placeholder="Username"
-                           required value="{{ username if username else '' }}" maxlength="50">
+                           required maxlength="50">
                     <small class="text-muted">Max 50 characters.</small>
                 </div>
 
-                <!--User enter email-->
+                <!-- Email -->
                 <div class="mb-3">
                     <label>Email (for OTP)</label>
                     <input type="email" name="email" class="form-control"
                            placeholder="email@example.com"
-                           required value="{{ email if email else '' }}">
+                           required>
                 </div>
 
-                <!--Enter password-->
+                <!-- Password -->
                 <div class="mb-3">
                     <label>Password</label>
 
@@ -72,7 +72,7 @@
                                class="form-control"
                                placeholder="Minimum 8 characters"
                                required maxlength="32"
-                               onkeyup="checkStrength()">
+                               onkeyup="validateForm()">
 
                         <span onclick="togglePassword('passwordInput', this)"
                               style="position:absolute; right:12px; top:50%; transform:translateY(-50%); cursor:pointer;">
@@ -83,7 +83,7 @@
                     <small id="strengthText" class="text-muted"></small>
                 </div>
 
-                <!--Confirm the password-->
+                <!-- Confirm Password -->
                 <div class="mb-3">
                     <label>Confirm Password</label>
 
@@ -92,7 +92,7 @@
                                id="confirmPasswordInput"
                                class="form-control"
                                required maxlength="32"
-                               onkeyup="checkMatch()">
+                               onkeyup="validateForm()">
 
                         <span onclick="togglePassword('confirmPasswordInput', this)"
                               style="position:absolute; right:12px; top:50%; transform:translateY(-50%); cursor:pointer;">
@@ -103,8 +103,9 @@
                     <small id="matchText" class="text-muted"></small>
                 </div>
 
-                <!--Signup button-->
-                <button type="submit" class="btn btn-success w-100 py-2">
+                <!-- Submit -->
+                <button type="submit" id="submitBtn"
+                        class="btn btn-success w-100 py-2" disabled>
                     Register
                 </button>
 
@@ -119,7 +120,7 @@
     </div>
 </div>
 
-<!--All Javascript here-->
+<!-- JS -->
 <script>
 function togglePassword(inputId, iconWrapper) {
     const input = document.getElementById(inputId);
@@ -127,47 +128,64 @@ function togglePassword(inputId, iconWrapper) {
 
     if (input.type === "password") {
         input.type = "text";
-        icon.classList.remove("fa-eye");
-        icon.classList.add("fa-eye-slash");
+        icon.classList.replace("fa-eye", "fa-eye-slash");
     } else {
         input.type = "password";
-        icon.classList.remove("fa-eye-slash");
-        icon.classList.add("fa-eye");
+        icon.classList.replace("fa-eye-slash", "fa-eye");
     }
 }
 
-function checkStrength() {
+function validateForm() {
     const password = document.getElementById("passwordInput").value;
-    const text = document.getElementById("strengthText");
-
-    if (password.length === 0) {
-        text.innerText = "";
-    } else if (password.length < 8) {
-        text.innerText = "Weak password";
-        text.className = "text-danger small";
-    } else if (/[A-Z]/.test(password) && /[0-9]/.test(password) && /[!@#$%^&*]/.test(password)) {
-        text.innerText = "Strong password";
-        text.className = "text-success small";
-    } else {
-        text.innerText = "Medium password (Mix letters, numbers & symbols)";
-        text.className = "text-warning small";
-    }
-}
-
-function checkMatch() {
-    const pass = document.getElementById("passwordInput").value;
     const confirm = document.getElementById("confirmPasswordInput").value;
-    const text = document.getElementById("matchText");
+
+    const strengthText = document.getElementById("strengthText");
+    const matchText = document.getElementById("matchText");
+    const submitBtn = document.getElementById("submitBtn");
+
+    // Password rules
+    const hasUpper = /[A-Z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    const hasSymbol = /[!@#$%^&*]/.test(password);
+
+    let strong = false;
+
+    // Strength check
+    if (password.length === 0) {
+        strengthText.innerText = "";
+    } 
+    else if (password.length < 8) {
+        strengthText.innerText = "Weak password (REJECTED)";
+        strengthText.className = "text-danger small";
+    } 
+    else if (hasUpper && hasNumber && hasSymbol) {
+        strengthText.innerText = "Strong password";
+        strengthText.className = "text-success small";
+        strong = true;
+    } 
+    else {
+        strengthText.innerText = "Medium password (not allowed)";
+        strengthText.className = "text-warning small";
+    }
+
+    // Match check
+    let match = false;
 
     if (confirm.length === 0) {
-        text.innerText = "";
-    } else if (pass === confirm) {
-        text.innerText = "Passwords match";
-        text.className = "text-success small";
-    } else {
-        text.innerText = "Passwords do not match";
-        text.className = "text-danger small";
+        matchText.innerText = "";
+    } 
+    else if (password === confirm) {
+        matchText.innerText = "Passwords match";
+        matchText.className = "text-success small";
+        match = true;
+    } 
+    else {
+        matchText.innerText = "Passwords do not match";
+        matchText.className = "text-danger small";
     }
+
+    // Final rule: ONLY enable if strong + match
+    submitBtn.disabled = !(strong && match);
 }
 </script>
 

@@ -4,7 +4,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-	<title>AgeisLibrary</title>
+    <title>AgeisLibrary</title>
 </head>
 
 <body class="d-flex align-items-center justify-content-center"
@@ -18,7 +18,7 @@
         <p class="text-muted">Please choose a strong password for your account.</p>
     </div>
 
-    <!--Message-->
+    <!-- Flash message -->
     {% with messages = get_flashed_messages() %}
       {% if messages %}
         <div class="alert alert-danger py-2 small">
@@ -29,7 +29,7 @@
 
     <form action="/reset_password_final" method="POST">
 
-        <!--Enter new password here-->
+        <!-- Password -->
         <div class="mb-3">
             <label class="form-label small fw-bold">New Password</label>
 
@@ -38,7 +38,7 @@
                        class="form-control"
                        placeholder="Min 8 characters"
                        required maxlength="32"
-                       onkeyup="checkStrength()">
+                       onkeyup="validateForm()">
 
                 <span onclick="togglePassword('passwordInput', this)"
                       style="position:absolute; right:12px; top:50%; transform:translateY(-50%); cursor:pointer;">
@@ -49,7 +49,7 @@
             <small id="strengthText" class="small"></small>
         </div>
 
-        <!--Password check-->
+        <!-- Confirm -->
         <div class="mb-4">
             <label class="form-label small fw-bold">Confirm New Password</label>
 
@@ -58,7 +58,7 @@
                        class="form-control"
                        placeholder="Repeat password"
                        required maxlength="32"
-                       onkeyup="checkMatch()">
+                       onkeyup="validateForm()">
 
                 <span onclick="togglePassword('confirmPasswordInput', this)"
                       style="position:absolute; right:12px; top:50%; transform:translateY(-50%); cursor:pointer;">
@@ -68,16 +68,17 @@
 
             <small id="matchText" class="small"></small>
         </div>
-		
-		<!--Submit-->
-        <button type="submit" class="btn btn-success w-100 py-2 shadow-sm">
+
+        <!-- Submit -->
+        <button type="submit" id="submitBtn"
+                class="btn btn-success w-100 py-2 shadow-sm"
+                disabled>
             Update Password
         </button>
 
     </form>
 </div>
 
-<!--Javascrpt-->
 <script>
 function togglePassword(inputId, iconWrapper) {
     const input = document.getElementById(inputId);
@@ -85,47 +86,62 @@ function togglePassword(inputId, iconWrapper) {
 
     if (input.type === "password") {
         input.type = "text";
-        icon.classList.remove("fa-eye");
-        icon.classList.add("fa-eye-slash");
+        icon.classList.replace("fa-eye", "fa-eye-slash");
     } else {
         input.type = "password";
-        icon.classList.remove("fa-eye-slash");
-        icon.classList.add("fa-eye");
+        icon.classList.replace("fa-eye-slash", "fa-eye");
     }
 }
 
-function checkStrength() {
+function validateForm() {
     const password = document.getElementById("passwordInput").value;
-    const text = document.getElementById("strengthText");
-
-    if (password.length === 0) {
-        text.innerText = "";
-    } else if (password.length < 8) {
-        text.innerText = "Weak (too short)";
-        text.className = "text-danger small";
-    } else if (/[A-Z]/.test(password) && /[0-9]/.test(password) && /[!@#$%^&*]/.test(password)) {
-        text.innerText = "Strong password";
-        text.className = "text-success small";
-    } else {
-        text.innerText = "Medium (add numbers, symbols & capital letters)";
-        text.className = "text-warning small";
-    }
-}
-
-function checkMatch() {
-    const pass = document.getElementById("passwordInput").value;
     const confirm = document.getElementById("confirmPasswordInput").value;
-    const text = document.getElementById("matchText");
 
-    if (confirm.length === 0) {
-        text.innerText = "";
-    } else if (pass === confirm) {
-        text.innerText = "Passwords match";
-        text.className = "text-success small";
-    } else {
-        text.innerText = "Passwords do not match";
-        text.className = "text-danger small";
+    const strengthText = document.getElementById("strengthText");
+    const matchText = document.getElementById("matchText");
+    const submitBtn = document.getElementById("submitBtn");
+
+    const hasUpper = /[A-Z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    const hasSymbol = /[!@#$%^&*]/.test(password);
+
+    let strong = false;
+    let match = false;
+
+    // 🔐 Strength check
+    if (password.length === 0) {
+        strengthText.innerText = "";
     }
+    else if (password.length < 8) {
+        strengthText.innerText = "Weak password (too short)";
+        strengthText.className = "text-danger small";
+    }
+    else if (hasUpper && hasNumber && hasSymbol) {
+        strengthText.innerText = "Strong password";
+        strengthText.className = "text-success small";
+        strong = true;
+    }
+    else {
+        strengthText.innerText = "Medium (add caps, numbers & symbols)";
+        strengthText.className = "text-warning small";
+    }
+
+    // 🔁 Match check
+    if (confirm.length === 0) {
+        matchText.innerText = "";
+    }
+    else if (password === confirm) {
+        matchText.innerText = "Passwords match";
+        matchText.className = "text-success small";
+        match = true;
+    }
+    else {
+        matchText.innerText = "Passwords do not match";
+        matchText.className = "text-danger small";
+    }
+
+    // 🚫 FINAL RULE: only allow strong + match
+    submitBtn.disabled = !(strong && match);
 }
 </script>
 

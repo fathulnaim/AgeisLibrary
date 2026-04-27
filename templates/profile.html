@@ -9,6 +9,7 @@
 
 <body style="background: #f4f7f6;">
 
+<!-- NAVBAR -->
 <nav class="navbar navbar-dark bg-dark px-4">
     <span class="navbar-brand">AgeisLibrary</span>
     <a href="/dashboard" class="btn btn-outline-light btn-sm">Back to Dashboard</a>
@@ -16,6 +17,7 @@
 
 <div class="container mt-5">
 
+    <!-- FLASH MESSAGE -->
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             {% for category, message in messages %}
@@ -29,24 +31,25 @@
 
     <div class="row">
 
+        <!-- LEFT PROFILE CARD -->
         <div class="col-md-4">
 
             <div class="card p-4 shadow-sm text-center mb-4">
-                <div class="mb-3" style="font-size: 60px;">👤</div>
+                <div style="font-size:60px;">👤</div>
                 <h4>{{ user.username }}</h4>
                 <p class="text-muted">{{ user.email }}</p>
                 <span class="badge bg-primary">{{ user.role|upper }}</span>
                 <hr>
-                <p class="small">
-                    Account Status: <span class="text-success">Verified ✅</span>
-                </p>
+                <p class="small">Account Status: <span class="text-success">Verified ✅</span></p>
             </div>
 
+            <!-- CHANGE PASSWORD -->
             <div class="card p-4 shadow-sm">
                 <h5 class="mb-3">🔒 Change Password</h5>
 
                 <form method="POST">
 
+                    <!-- current password -->
                     <div class="mb-2 position-relative">
                         <input type="password" name="old_password" id="oldPasswordInput"
                                class="form-control" placeholder="Current Password" required>
@@ -57,39 +60,46 @@
                         </span>
                     </div>
 
+                    <!-- new password -->
                     <div class="mb-2 position-relative">
                         <input type="password" name="new_password" id="newPasswordInput"
                                class="form-control" placeholder="New Password"
-                               required onkeyup="checkStrength()">
+                               required onkeyup="validateForm()">
 
                         <span onclick="togglePassword('newPasswordInput', this)"
                               style="position:absolute; right:12px; top:50%; transform:translateY(-50%); cursor:pointer;">
                             <i class="fa-solid fa-eye"></i>
                         </span>
 
-                        <small id="strengthText" class="text-muted"></small>
+                        <small id="strengthText" class="small"></small>
                     </div>
 
+                    <!-- confirm -->
                     <div class="mb-3 position-relative">
                         <input type="password" name="confirm_password" id="confirmPasswordInput"
                                class="form-control" placeholder="Confirm New Password"
-                               required onkeyup="checkMatch()">
+                               required onkeyup="validateForm()">
 
                         <span onclick="togglePassword('confirmPasswordInput', this)"
                               style="position:absolute; right:12px; top:50%; transform:translateY(-50%); cursor:pointer;">
                             <i class="fa-solid fa-eye"></i>
                         </span>
 
-                        <small id="matchText" class="text-muted"></small>
+                        <small id="matchText" class="small"></small>
                     </div>
 
-                    <button class="btn btn-dark w-100">Update Password</button>
+                    <button type="submit" id="submitBtn"
+                            class="btn btn-dark w-100"
+                            disabled>
+                        Update Password
+                    </button>
 
                 </form>
             </div>
 
         </div>
 
+        <!-- RIGHT BORROWED BOOKS -->
         <div class="col-md-8">
 
             <div class="card p-4 shadow-sm" style="min-height: 500px;">
@@ -111,13 +121,7 @@
                         <tr>
                             <td><code>{{ book.book_id }}</code></td>
                             <td>{{ book.title }}</td>
-
-                            <td>
-                                <span class="text-danger fw-semibold">
-                                    {{ book.due_date }}
-                                </span>
-                            </td>
-
+                            <td class="text-danger fw-semibold">{{ book.due_date }}</td>
                             <td>
                                 <form action="/return/{{ book.book_id }}" method="POST">
                                     <button class="btn btn-sm btn-outline-danger">
@@ -142,9 +146,9 @@
         </div>
 
     </div>
-
 </div>
 
+<!-- JAVASCRIPT -->
 <script>
 function togglePassword(inputId, iconWrapper) {
     const input = document.getElementById(inputId);
@@ -152,47 +156,62 @@ function togglePassword(inputId, iconWrapper) {
 
     if (input.type === "password") {
         input.type = "text";
-        icon.classList.remove("fa-eye");
-        icon.classList.add("fa-eye-slash");
+        icon.classList.replace("fa-eye", "fa-eye-slash");
     } else {
         input.type = "password";
-        icon.classList.remove("fa-eye-slash");
-        icon.classList.add("fa-eye");
+        icon.classList.replace("fa-eye-slash", "fa-eye");
     }
 }
 
-function checkStrength() {
+function validateForm() {
     const password = document.getElementById("newPasswordInput").value;
-    const text = document.getElementById("strengthText");
-
-    if (password.length === 0) {
-        text.innerText = "";
-    } else if (password.length < 8) {
-        text.innerText = "Weak password";
-        text.className = "text-danger small";
-    } else if (/[A-Z]/.test(password) && /[0-9]/.test(password) && /[!@#$%^&*]/.test(password)) {
-        text.innerText = "Strong password";
-        text.className = "text-success small";
-    } else {
-        text.innerText = "Medium password";
-        text.className = "text-warning small";
-    }
-}
-
-function checkMatch() {
-    const pass = document.getElementById("newPasswordInput").value;
     const confirm = document.getElementById("confirmPasswordInput").value;
-    const text = document.getElementById("matchText");
 
-    if (confirm.length === 0) {
-        text.innerText = "";
-    } else if (pass === confirm) {
-        text.innerText = "Passwords match";
-        text.className = "text-success small";
-    } else {
-        text.innerText = "Passwords do not match";
-        text.className = "text-danger small";
+    const strengthText = document.getElementById("strengthText");
+    const matchText = document.getElementById("matchText");
+    const submitBtn = document.getElementById("submitBtn");
+
+    const hasUpper = /[A-Z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    const hasSymbol = /[!@#$%^&*]/.test(password);
+
+    let strong = false;
+    let match = false;
+
+    // strength check
+    if (password.length === 0) {
+        strengthText.innerText = "";
     }
+    else if (password.length < 8) {
+        strengthText.innerText = "Weak password (REJECTED)";
+        strengthText.className = "text-danger small";
+    }
+    else if (hasUpper && hasNumber && hasSymbol) {
+        strengthText.innerText = "Strong password";
+        strengthText.className = "text-success small";
+        strong = true;
+    }
+    else {
+        strengthText.innerText = "Medium (add caps, numbers & symbols)";
+        strengthText.className = "text-warning small";
+    }
+
+    // match check
+    if (confirm.length === 0) {
+        matchText.innerText = "";
+    }
+    else if (password === confirm) {
+        matchText.innerText = "Passwords match";
+        matchText.className = "text-success small";
+        match = true;
+    }
+    else {
+        matchText.innerText = "Passwords do not match";
+        matchText.className = "text-danger small";
+    }
+
+    // final rule
+    submitBtn.disabled = !(strong && match);
 }
 </script>
 
