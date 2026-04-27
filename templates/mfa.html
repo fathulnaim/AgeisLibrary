@@ -29,13 +29,13 @@
         <div class="mb-3">
             <div class="badge bg-light text-dark border p-2" style="font-size: 0.9rem;">
                 Code expires in:
-                <span id="timer" class="fw-bold text-danger">60</span>s
+                <span id="timer" class="fw-bold text-danger">{{ remaining_time }}s</span>
             </div>
         </div>
 		<!--Message-->
         {% with messages = get_flashed_messages() %}
             {% if messages %}
-                <div class="alert alert-warning py-2 small">{{ messages[0] }}</div>
+                <div class="alert alert-danger py-2 small">{{ messages[0] }}</div>
             {% endif %}
         {% endwith %}
 
@@ -54,27 +54,25 @@
         <div class="mt-4">
             <p class="small text-muted">
                 Didn't get the code? <br>
-                <a href="/send_mfa" class="text-decoration-none">Resend Manual</a>
+                <a href="/send_mfa" class="text-decoration-none">Resend Code</a>
             </p>
         </div>
     </div>
 </div>
 <!--Javascript here-->
 <script>
-    let timeLeft = 60;
-    const timerElement = document.getElementById('timer');
+    let timeLeft = {{ remaining_time }}; 
+    const timerText = document.getElementById("timer");
 
     const countdown = setInterval(() => {
         timeLeft--;
-        timerElement.innerText = timeLeft;
-
+        
         if (timeLeft <= 0) {
             clearInterval(countdown);
-            window.location.href = "/send_mfa";
-        }
-
-        if (timeLeft <= 10) {
-            timerElement.classList.add('text-danger');
+            timerText.innerText = "0s"; // Keep it at 0
+            window.location.href = "/forgot_password"; 
+        } else {
+            timerText.innerText = timeLeft + "s";
         }
     }, 1000);
 </script>
