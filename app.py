@@ -129,6 +129,100 @@ def signup():
 def login_page():
     return render_template('login.html')
 
+# MFA
+@app.route('/send_mfa')
+def send_mfa():
+    if 'temp_user' not in session: return redirect('/')
+    
+    # Generate new code and store the time it was created
+    mfa_code = str(random.randint(100000, 999999))
+    session['mfa_attempts'] = 3
+    session['mfa_code'] = mfa_code
+    session['mfa_time'] = time.time()
+    
+    print("\n" + "!"*40)
+    print(f"NEW OTP FOR {session['temp_user']}: {mfa_code}")
+    print(f"EXPIRES IN: 60 SECONDS")
+    print("!"*40 + "\n")
+    
+    return redirect('/mfa')
+
+@app.route('/mfa', methods=['GET', 'POST'])
+def mfa():
+    # Security: If no MFA process is active, kick to login
+    if 'mfa_code' not in session: return redirect('/login_page')
+    username = session.get('temp_user')
+    # --- TIME CALCULATION ---
+    now = time.time()
+    remaining = int(10 - (now - session.get('mfa_time', now)))
+
+    if request.method == 'POST':
+        # --- SCENARIO 1: EXPIRED OTP ---
+        if remaining <= 0:
+            add_log(username, "MFA Verification", "Failed - Code Expired")
+            flash("OTP Expired! Please click the 'Resend' button.", "danger")
+            return render_template('mfa.html', remaining_time=0, 
+                                   attempts=session.get('mfa_attempts'),
+                                   email_hint=mask_email(session.get('temp_email')))
+
+        user_code = request.form.get('code')
+
+        # --- VALIDATION LOGIC ---
+        if user_code == session.get('mfa_code'):
+            # SUCCESS: Move user to session
+            add_log(username, "MFA Verification", "Success - Fully Logged In")
+            session['user'] = session['temp_user']
+            session['role'] = session['temp_role']
+            # Clean up all MFA keys
+            for key in ['mfa_code', 'mfa_time', 'mfa_attempts', 'mfa_resends', 'temp_user', 'temp_role']:
+                session.pop(key, None)
+            return redirect('/dashboard')
+
+        else:
+            # --- SCENARIO 2: INPUT ATTEMPTS EXCEEDED ---
+            session['mfa_attempts'] = session.get('mfa_attempts', 3) - 1
+            
+            if session['mfa_attempts'] <= 0:
+                add_log(username, "MFA Verification", "Blocked - Too many wrong codes")
+                session.clear() # Kill everything for security
+                flash("Too many failed attempts. Identity could not be verified. Please log in again.", "danger")
+                return redirect('/login_page')
+            add_log(username, "MFA Verification", f"Failed - Wrong code. {session['mfa_attempts']} tries left")
+            flash(f"Invalid Code! {session['mfa_attempts']} tries remaining.", "danger")
+            
+    return render_template('mfa.html', 
+                           email_hint=mask_email(session.get('temp_email')), 
+                           remaining_time=max(0, remaining),
+                           attempts=session.get('mfa_attempts'))
+
+@app.route('/resend_mfa')
+def resend_mfa():
+    if 'temp_email' not in session: return redirect('/login_page')
+    username = session.get('temp_user')
+    resends = session.get('mfa_resends', 0)
+    if resends >= 3:
+        add_log(username, "MFA Resend", "Blocked - Max resends reached")
+        session.clear()
+        flash("Resend limit reached. For security, please wait and log in again later.", "danger")
+        return redirect('/login_page')
+
+    # Reset MFA state for the new code
+    new_mfa = str(random.randint(100000, 999999))
+    session['mfa_code'] = new_mfa
+    session['mfa_time'] = time.time()
+    session['mfa_attempts'] = 3
+    session['mfa_resends'] = resends + 1
+
+    # 4. Send the Email (Use your existing email function here)
+    print("\n" + "!"*40)
+    print(f"NEW OTP FOR {session['temp_user']}: {new_mfa}")
+    print(f"EXPIRES IN: 60 SECONDS")
+    print("!"*40 + "\n")
+
+    add_log(username, "MFA Resend", f"Success - Resend #{session['mfa_resends']}")
+    flash(f"A new code has been sent! (Resend {session['mfa_resends']}/3)", "success")
+    return redirect('/mfa')
+
 # Submission handler for login
 @app.route('/login', methods=['POST'])
 def login():
@@ -142,6 +236,7 @@ def login():
         session['temp_user'] = username
         session['temp_email'] = user['email'] # Store email for MFA display
         session['temp_role'] = user['role']
+        session['resend_count'] = 0
         add_log(username, "Login Attempt", "Successful password entry, moving to MFA")
         return redirect('/send_mfa')
     
@@ -150,139 +245,132 @@ def login():
     return render_template('login.html', username=username)
 
 # Reset password handler by asking email
-
 @app.route('/forgot_password', methods=['GET', 'POST'])
 def forgot_password():
     if request.method == 'POST':
         email = request.form.get('email')
         db = get_db()
-        # Verify if email exists in our system
         user = db.execute("SELECT username FROM users WHERE email = ?", (email,)).fetchone()
         
         if user:
-            # Generate Reset OTP
             otp = str(random.randint(100000, 999999))
             session['reset_otp'] = otp
             session['reset_email'] = email
             session['reset_time'] = time.time()
+            session['reset_attempts'] = 3
+            session['reset_resend_count'] = 0
             
-            print("\n" + "?"*40)
-            print(f"PASSWORD RESET OTP FOR {email}: {otp}")
-            print("?"*40 + "\n")
+            # LOG: Reset started
+            add_log(email, "Reset Requested", "Generated first OTP")
+            print("\n" + "!"*40)
+            print(f"NEW OTP FOR {email}: {otp}")
+            print(f"EXPIRES IN: 60 SECONDS")
+            print("!"*40 + "\n")
             
             return redirect('/verify_reset_otp')
         else:
-            flash("Error: That email is not registered in our library.")
+            # LOG: Failed attempt to find email
+            add_log(email, "Reset Requested", "Failed - Email not found in DB")
+            flash("Error: That email is not registered.", "danger")
+            
     return render_template('forgot_password.html')
 
-# OTP/MFA for forget password
 @app.route('/verify_reset_otp', methods=['GET', 'POST'])
 def verify_reset_otp():
     if 'reset_otp' not in session: return redirect('/forgot_password')
     
-    # Check for expiration (60 seconds) no reset, redirect to email page
-    now = time.time()
-    start_time = session.get('reset_time', now)
-    elapsed = now - start_time
-    remaining = int(60 - elapsed)
+    email = session.get('reset_email')
+    remaining = int(60 - (time.time() - session.get('reset_time', time.time())))
     
-    if remaining <= 0:
-        session.pop('reset_otp', None)
-        flash("Reset code expired!", "danger")
+    if request.method == 'POST':
+        # 1. Check if expired
+        if remaining <= 0:
+            add_log(email, "OTP Verification", "Failed - Code Expired")
+            flash("Code expired! Please resend.", "danger")
+            return render_template('verify_reset_otp.html', remaining_time=0, attempts=session.get('reset_attempts'))
+
+        user_code = request.form.get('code')
+        
+        # 2. Check if correct
+        if user_code == session.get('reset_otp'):
+            add_log(email, "OTP Verification", "Success")
+            session['reset_authorized'] = True
+            session.pop('reset_otp', None)
+            return redirect('/reset_password_final')
+        
+        # 3. Handle wrong code
+        else:
+            session['reset_attempts'] = session.get('reset_attempts', 3) - 1
+            
+            if session['reset_attempts'] <= 0:
+                add_log(email, "OTP Verification", "Account Locked - Max Attempts reached")
+                session.clear()
+                flash("Too many failed attempts. Start over.", "danger")
+                return redirect('/forgot_password')
+            
+            add_log(email, "OTP Verification", f"Failed - Wrong code. {session['reset_attempts']} tries left")
+            flash(f"Invalid code! {session['reset_attempts']} tries left.", "danger")
+
+    return render_template('verify_reset_otp.html', 
+                           remaining_time=max(0, remaining), 
+                           attempts=session.get('reset_attempts', 3))
+
+@app.route('/resend_reset_otp')
+def resend_reset_otp():
+    if 'reset_email' not in session: return redirect('/forgot_password')
+    email = session.get('reset_email')
+
+    # Check resend limit
+    resend_count = session.get('reset_resend_count', 0)
+    if resend_count >= 3:
+        add_log(email, "OTP Resend", "Blocked - Max resends reached")
+        flash("Too many resends. Please try again later.", "danger")
         return redirect('/forgot_password')
 
-    # Check if the code correct or not
-    if request.method == 'POST':
-        user_code = request.form.get('code')
-        if user_code == session.get('reset_otp'):
-            session['reset_authorized'] = True
-            return redirect('/reset_password_final')
-        else:
-            flash("Invalid Reset Code!", "danger")
-            
-    return render_template('verify_reset_otp.html', email=session.get('reset_email'), remaining_time=remaining)
+    # Reset for new OTP
+    otp = str(random.randint(100000, 999999))
+    session['reset_otp'] = otp
+    session['reset_time'] = time.time()
+    session['reset_attempts'] = 3
+    session['reset_resend_count'] = resend_count + 1
 
-# Reset password here
+    print("\n" + "!"*40)
+    print(f"NEW OTP FOR {email}: {otp}")
+    print(f"EXPIRES IN: 60 SECONDS")
+    print("!"*40 + "\n")
+            
+    add_log(email, "OTP Resend", f"Success - Resend #{session['reset_resend_count']}")
+    flash(f"New reset code sent! (Resend {session['reset_resend_count']}/3)", "success")
+    return redirect('/verify_reset_otp')
+
 @app.route('/reset_password_final', methods=['GET', 'POST'])
 def reset_password_final():
-    # SECURITY: Prevent direct access to this page
     if not session.get('reset_authorized'): return redirect('/')
+    email = session.get('reset_email')
 
     if request.method == 'POST':
         new_password = request.form.get('password')
         confirm = request.form.get('confirm')
 
-        if len(new_password) < 8:
-            flash("Password must be at least 8 characters!")
-            return render_template('reset_final.html')
-            
-        if new_password != confirm:
-            flash("Passwords do not match!")
+        # Simple check (you should add your regex password check here too)
+        if len(new_password) < 8 or new_password != confirm:
+            flash("Invalid password or mismatch!", "danger")
             return render_template('reset_final.html')
 
-        # Update Database
+        # Update DB
         db = get_db()
         hashed_pw = generate_password_hash(new_password)
-        db.execute("UPDATE users SET password_hash = ? WHERE email = ?", 
-                   (hashed_pw, session.get('reset_email')))
+        db.execute("UPDATE users SET password_hash = ? WHERE email = ?", (hashed_pw, email))
         db.commit()
 
-        # Clean up session
+        # LOG: FINAL SUCCESS
+        add_log(email, "Password Change", "Success - User updated password")
+
         session.clear()
         flash("Success! Password updated. Please login.", "success")
         return redirect('/login_page')
 
     return render_template('reset_final.html')
-
-# MFA
-@app.route('/send_mfa')
-def send_mfa():
-    if 'temp_user' not in session: return redirect('/')
-    
-    # Generate new code and store the time it was created
-    mfa_code = str(random.randint(100000, 999999))
-    session['mfa_code'] = mfa_code
-    session['mfa_time'] = time.time()
-    
-    print("\n" + "!"*40)
-    print(f"NEW OTP FOR {session['temp_user']}: {mfa_code}")
-    print(f"EXPIRES IN: 60 SECONDS")
-    print("!"*40 + "\n")
-    
-    return redirect('/mfa')
-
-@app.route('/mfa', methods=['GET', 'POST'])
-def mfa():
-    if 'mfa_code' not in session: return redirect('/')
-    
-    # 1. Calculate time remaining
-    now = time.time()
-    # If mfa_time isn't set yet, use 'now' as fallback
-    start_time = session.get('mfa_time', now) 
-    remaining = int(60 - (now - start_time))
-    
-    # 2. Check for expiration
-    if remaining <= 0:
-        session.pop('mfa_code', None)
-        flash("OTP Expired! Please try logging in again.", "danger")
-        return redirect('/') # Or wherever you want them to go
-
-    if request.method == 'POST':
-        user_code = request.form.get('code')
-        if user_code == session.get('mfa_code'):
-            session['user'] = session['temp_user']
-            session.pop('mfa_code', None)
-            session.pop('mfa_time', None)
-            return redirect('/dashboard')
-        else:
-            flash("Invalid Code!", "danger") 
-            
-    email_hint = mask_email(session.get('temp_email', 'user@mail.com'))
-    
-    return render_template('mfa.html', 
-                           email_hint=email_hint, 
-                           remaining_time=remaining)
-# Search route
 
 @app.route('/search', methods=['POST'])
 def search():
@@ -403,7 +491,7 @@ def delete_book():
     db = get_db()
     db.execute("DELETE FROM books WHERE book_id = ?", (bid,))
     db.commit()
-    add_log(session['user'], "ADMIN Action: Delete Book", f"Added Book ID: {bid}")
+    add_log(session['user'], "ADMIN Action: Delete Book", f"Deleted Book ID: {bid}")
     flash("Book deleted!")
     return redirect('/admin')
 

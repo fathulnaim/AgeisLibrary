@@ -29,15 +29,20 @@
         <div class="mb-3">
             <div class="badge bg-light text-dark border p-2" style="font-size: 0.9rem;">
                 Code expires in:
-                <span id="timer" class="fw-bold text-danger">{{ remaining_time }}s</span>
+                <span id="timerTop" class="fw-bold text-danger">{{ remaining_time }}s</span>
             </div>
         </div>
 		<!--Message-->
-        {% with messages = get_flashed_messages() %}
-            {% if messages %}
-                <div class="alert alert-danger py-2 small">{{ messages[0] }}</div>
-            {% endif %}
-        {% endwith %}
+        {% with messages = get_flashed_messages(with_categories=true) %}
+		  {% if messages %}
+			{% for category, message in messages %}
+			  <div class="alert alert-{{ category if category != 'message' else 'danger' }} py-2 small alert-dismissible fade show" role="alert">
+				{{ message }}
+				<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" style="padding: 0.5rem;"></button>
+			  </div>
+			{% endfor %}
+		  {% endif %}
+		{% endwith %}
 
         <form action="/mfa" method="POST">
             <div class="mb-4">
@@ -46,36 +51,56 @@
                        placeholder="000000" maxlength="6" required autofocus
                        style="letter-spacing: 8px; font-size: 1.5rem; font-weight: bold;">
             </div>
+			<p class="text-muted">
+			Attempts remaining: <span class="badge bg-{{ 'danger' if attempts == 1 else 'warning' }}">{{ attempts }}</span>
+			</p>
             <button type="submit" class="btn btn-primary w-100 py-2 shadow-sm">
                 Verify Identity
             </button>
         </form>
 
-        <div class="mt-4">
-            <p class="small text-muted">
-                Didn't get the code? <br>
-                <a href="/send_mfa" class="text-decoration-none">Resend Code</a>
-            </p>
-        </div>
+        <div class="mt-3">
+			<button id="resendBtn" class="btn btn-secondary btn-sm" onclick="window.location.href='{{ url_for('resend_mfa') }}'" disabled>
+				Resend Code (<span id="timerBtn">{{ remaining_time }}s</span>)
+			</button>
+		</div>
     </div>
 </div>
 <!--Javascript here-->
 <script>
-    let timeLeft = {{ remaining_time }}; 
-    const timerText = document.getElementById("timer");
+    let timeLeft = {{ remaining_time | default(60) }};
+    
+    // Get all the elements
+    const resendBtn = document.getElementById("resendBtn");
+    const timerTop = document.getElementById("timerTop"); // Top display
+    const timerBtn = document.getElementById("timerBtn"); // Inside button
 
-    const countdown = setInterval(() => {
-        timeLeft--;
+    if (timeLeft <= 0) {
+        enableButton();
+    } else {
+        const countdown = setInterval(() => {
+            timeLeft--;
+            
+            if (timeLeft <= 0) {
+                clearInterval(countdown);
+                enableButton();
+            } else {
+                // UPDATE BOTH TIMERS
+                timerTop.innerText = timeLeft + "s";
+                timerBtn.innerText = timeLeft + "s";
+            }
+        }, 1000);
+    }
+
+    function enableButton() {
+        resendBtn.disabled = false;                
+        resendBtn.classList.remove('btn-secondary');
+        resendBtn.classList.add('btn-primary');    
+        resendBtn.innerText = "Resend Code Now";   
         
-        if (timeLeft <= 0) {
-            clearInterval(countdown);
-            timerText.innerText = "0s"; // Keep it at 0
-            window.location.href = "/forgot_password"; 
-        } else {
-            timerText.innerText = timeLeft + "s";
-        }
-    }, 1000);
+        // Optional: Change top text when expired
+        timerTop.innerText = "Expired";
+    }
 </script>
-
 </body>
 </html>
