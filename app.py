@@ -154,7 +154,7 @@ def mfa():
     username = session.get('temp_user')
     # --- TIME CALCULATION ---
     now = time.time()
-    remaining = int(10 - (now - session.get('mfa_time', now)))
+    remaining = int(60 - (now - session.get('mfa_time', now)))
 
     if request.method == 'POST':
         # --- SCENARIO 1: EXPIRED OTP ---
@@ -376,15 +376,18 @@ def reset_password_final():
 def search():
     query = request.form.get('book_id')
     current_user = session.get('user', 'Guest')
+    current_role = session.get('role')
     add_log(current_user, "Book Search", f"Keyword used: {query}")
 
     # Help to prevent buffer overflow
     if len(query) > 50:
         flash("SECURITY ALERT: Search buffer exceeded! (Max 50 characters)")
+        add_log(session['user'],"Input Validation Failed",f"Keyword rejected: {query} | Reason: Input length exceeded")
         return redirect(url_for('home'))
 
     if not is_valid_input(query, 50, r"^[a-zA-Z0-9 ]*$"):
         flash("Input Validation Error: Invalid characters detected.", "danger")
+        add_log(session['user'],"Input Validation Failed",f"Keyword rejected: {query} | Reason: Invalid characters / Harmful pattern detected")
         return redirect(url_for('home'))
 
     db = get_db()
@@ -400,7 +403,7 @@ def search():
     all_books = db.execute("SELECT * FROM books").fetchall()
     stats = {'total': total_books, 'available': available_books, 'rented': borrowed_books, 'my_books': 0, 'users': total_users}
     
-    return render_template('dashboard.html', results=results, query=query, stats=stats, all_books=all_books, user=session.get('user'))
+    return render_template('dashboard.html', results=results, query=query, stats=stats, all_books=all_books, user=session.get('user'), role=current_role)
 
 
 # Admin features
@@ -425,8 +428,9 @@ def add_book():
 
     # Buffer overflow prevention
     if len(bid) > 8:
-        flash("CRITICAL: Buffer Overflow! Book ID is too long (Max 8).")
-        
+        flash("CRITICAL: Buffer Overflow! Book ID is too long (Max 8).", "danger")
+        add_log(session['user'],"Buffer Overflow Attempt Blocked",
+        f"Add Book rejected | Book ID: {bid} | Reason: Input size exceeds limit")
         # Fetch list of books
         all_books = db.execute("SELECT * FROM books").fetchall()
         
@@ -438,19 +442,19 @@ def add_book():
                                cat=cat)
 
         # Validate search input
-    if is_valid_input(bid, 8) and is_valid_input(title, 50):
+    if is_valid_input(bid, 8) and is_valid_input(title, 50, r"^[a-zA-Z0-9\s.,-/]*$"):
         try:
             db.execute("INSERT INTO books VALUES (?, ?, ?, 'Available', NULL)", (bid, title, cat))
             db.commit()
             add_log(session['user'], "ADMIN Action: Add Book", f"Added Book ID: {bid}")
-            flash("Success: Book added.")
+            flash("Success: Book added.", "success")
             return redirect('/admin') # Use redirect on success to clear the form
         except Exception as e:
-            flash("Error: Database Collision (ID already exists).")
+            flash("Error: Database Collision (ID already exists).", "danger")
             all_books = db.execute("SELECT * FROM books").fetchall()
             return render_template('admin.html', books=all_books, sticky_bid=bid, sticky_title=title)
     else:
-        flash("Validation Error: Invalid characters detected.")
+        flash("Validation Error: Invalid characters detected.", "danger")
         all_books = db.execute("SELECT * FROM books").fetchall()
         return render_template('admin.html', books=all_books, sticky_bid=bid, sticky_title=title)
 
@@ -480,19 +484,50 @@ def return_b():
     db.commit()
     
     add_log(session['user'], "ADMIN Action: Return Book", f"Returned Book ID: {bid}")
-    flash(f"Management Alert: Book {bid} has been forcibly returned by Admin.")
+    flash(f"Management Alert: Book {bid} has been forcibly returned by Admin.", "warning")
     return redirect('/admin')
 
 # Delete book record
 @app.route('/admin/delete', methods=['POST'])
 def delete_book():
-    if session.get('role') != 'admin': return redirect('/')
+    if session.get('role') != 'admin':
+        return redirect('/')
+
     bid = request.form.get('book_id')
     db = get_db()
+
+    # Check from books table
+    book = db.execute(
+        "SELECT status FROM books WHERE book_id = ?",
+        (bid,)
+    ).fetchone()
+
+    if not book:
+        flash("Book not found.", "danger")
+        return redirect('/admin')
+
+    if book['status'] == 'Borrowed':
+        flash("Cannot delete: Book is currently borrowed.", "danger")
+
+        add_log(
+            session['user'],
+            "Delete Book Blocked",
+            f"Delete rejected | Book ID: {bid} | Reason: Book is currently borrowed"
+        )
+
+        return redirect('/admin')
+
+    # Safe to delete
     db.execute("DELETE FROM books WHERE book_id = ?", (bid,))
     db.commit()
-    add_log(session['user'], "ADMIN Action: Delete Book", f"Deleted Book ID: {bid}")
-    flash("Book deleted!")
+
+    add_log(
+        session['user'],
+        "ADMIN Action: Delete Book",
+        f"Deleted Book ID: {bid}"
+    )
+
+    flash("Book deleted!", "success")
     return redirect('/admin')
 
 # Student borrow features
@@ -513,7 +548,7 @@ def student_borrow(book_id):
         add_log(session['user'], "Borrow Book", f"Book ID: {book_id}")
         flash(f"Success! You have borrowed {book_id}", "success")
     else:
-        flash("This book is already borrowed by someone else!")
+        flash("This book is already borrowed by someone else!", "danger")
         
     return redirect('/dashboard')
 
