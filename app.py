@@ -30,7 +30,8 @@ def add_log(username, activity, details=""):
         db.commit()
     except Exception as e:
         print(f"Logging Error: {e}")
-
+    finally:
+        db.close()
 #Hint for OTP/MFA
 def mask_email(email):
     try:
@@ -429,16 +430,17 @@ def add_book():
     db = get_db()
 
     try:
-        # validation FIRST (clean flow)
         if len(bid) > 8:
             flash("CRITICAL: Book ID too long (Max 8).", "danger")
-            add_log(session['user'], "Buffer Overflow Attempt Blocked",
+            db.close()
+            add_log(session.get('user', 'Unknown'),
+                    "Buffer Overflow Attempt Blocked",
                     f"Book ID: {bid}")
-
             return redirect('/admin')
 
         if not is_valid_input(bid, 8) or not is_valid_input(title, 50, r"^[a-zA-Z0-9\s.,-/]*$"):
             flash("Validation Error: Invalid characters detected.", "danger")
+            db.close()
             return redirect('/admin')
 
         db.execute(
@@ -446,18 +448,24 @@ def add_book():
             (bid, title, cat)
         )
         db.commit()
+        db.close()
 
-        add_log(session['user'], "ADMIN Action: Add Book", f"Added Book ID: {bid}")
+        add_log(session.get('user', 'Unknown'),
+                "ADMIN Action: Add Book",
+                f"Added Book ID: {bid}")
+
         flash("Success: Book added.", "success")
-
         return redirect('/admin')
 
     except Exception:
+        db.close()
+
+        add_log(session.get('user', 'Unknown'),
+                "Book Add Failed",
+                f"Book ID: {bid}")
+
         flash("Error: Book ID already exists or DB error.", "danger")
         return redirect('/admin')
-
-    finally:
-        db.close()
 
 # Borrow for admin
 @app.route('/admin/borrow', methods=['POST'])
