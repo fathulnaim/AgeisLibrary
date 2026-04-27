@@ -142,7 +142,7 @@ def send_mfa():
     session['mfa_time'] = time.time()
     
     print("\n" + "!"*40)
-    print(f"NEW OTP FOR {session['temp_user']}: {mfa_code}")
+    print(f"NEW OTP FOR {session['temp_email']}: {mfa_code}")
     print(f"EXPIRES IN: 60 SECONDS")
     print("!"*40 + "\n")
     
@@ -216,7 +216,7 @@ def resend_mfa():
 
     # 4. Send the Email (Use your existing email function here)
     print("\n" + "!"*40)
-    print(f"NEW OTP FOR {session['temp_user']}: {new_mfa}")
+    print(f"NEW OTP FOR {session['temp_email']}: {new_mfa}")
     print(f"EXPIRES IN: 60 SECONDS")
     print("!"*40 + "\n")
 
