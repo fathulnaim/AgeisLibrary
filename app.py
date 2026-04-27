@@ -98,7 +98,7 @@ def signup():
             return render_template('signup.html', username=username, email=email)
 
         # Check 2: Email format
-        if not is_valid_input(email, 50, r"^[a-zA-Z0-9.@_-]*$"):
+        if not is_valid_input(email, 50, r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.com$"):
             flash("Invalid email format!", "danger")
             return render_template('signup.html', username=username, email=email)
         
@@ -181,9 +181,14 @@ def verify_reset_otp():
     if 'reset_otp' not in session: return redirect('/forgot_password')
     
     # Check for expiration (60 seconds)
-    if time.time() - session.get('reset_time', 0) > 60:
+    now = time.time()
+    start_time = session.get('reset_time', now)
+    elapsed = now - start_time
+    remaining = int(60 - elapsed)
+    
+    if remaining <= 0:
         session.pop('reset_otp', None)
-        flash("Reset code expired. Please request a new one.")
+        flash("Reset code expired!", "danger")
         return redirect('/forgot_password')
 
     # Check if the code correct or not
@@ -193,9 +198,9 @@ def verify_reset_otp():
             session['reset_authorized'] = True
             return redirect('/reset_password_final')
         else:
-            flash("Invalid Reset Code!")
+            flash("Invalid Reset Code!", "danger")
             
-    return render_template('verify_reset_otp.html', email=session.get('reset_email'))
+    return render_template('verify_reset_otp.html', email=session.get('reset_email'), remaining_time=remaining)
 
 # Reset password here
 @app.route('/reset_password_final', methods=['GET', 'POST'])
