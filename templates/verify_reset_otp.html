@@ -18,16 +18,21 @@
 	<!--Timer-->
     <div class="mb-3">
         <div class="badge bg-light text-dark border p-2">
-            Code expires in: <span id="timer" class="fw-bold text-danger">{{ remaining_time }}s</span>
+            Code expires in: <span id="timerTop" class="fw-bold text-danger">{{ remaining_time }}s</span>
         </div>
     </div>
 	
 	<!--Message-->
-    {% with messages = get_flashed_messages() %}
-        {% if messages %}
-            <div class="alert alert-danger py-2 small">{{ messages[0] }}</div>
-        {% endif %}
-    {% endwith %}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+		  {% if messages %}
+			{% for category, message in messages %}
+			  <div class="alert alert-{{ category if category != 'message' else 'danger' }} py-2 small alert-dismissible fade show" role="alert">
+				{{ message }}
+				<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" style="padding: 0.5rem;"></button>
+			  </div>
+			{% endfor %}
+		  {% endif %}
+		{% endwith %}
 	
 	<!---Enter number OTP-->
     <form action="/verify_reset_otp" method="POST">
@@ -36,32 +41,56 @@
                    placeholder="000000" maxlength="6" required autofocus
                    style="letter-spacing: 8px; font-weight: bold; font-size: 1.5rem;">
         </div>
+		<p class="text-muted">
+			Attempts remaining: <span class="badge bg-{{ 'danger' if attempts == 1 else 'warning' }}">{{ attempts }}</span>
+		</p>
         <button type="submit" class="btn btn-primary w-100 py-2">Verify Code</button>
     </form>
+
 	
 	<!--Resend code if needed-->
-    <div class="mt-4">
-        <a href="/forgot_password" class="small text-decoration-none">Resend Code</a>
-    </div>
+    <div class="mt-3">
+			<button id="resendBtn" class="btn btn-secondary btn-sm" onclick="window.location.href='{{ url_for('resend_reset_otp') }}'" disabled>
+				Resend Code (<span id="timerBtn">{{ remaining_time }}s</span>)
+			</button>
+		</div>
 </div>
 
 <!--Javascript here-->
 <script>
-	let timeLeft = {{ remaining_time }}; 
+    let timeLeft = {{ remaining_time | default(60) }};
+    
+    // Get all the elements
+    const resendBtn = document.getElementById("resendBtn");
+    const timerTop = document.getElementById("timerTop"); // Top display
+    const timerBtn = document.getElementById("timerBtn"); // Inside button
 
-	const timerText = document.getElementById("timer");
+    if (timeLeft <= 0) {
+        enableButton();
+    } else {
+        const countdown = setInterval(() => {
+            timeLeft--;
+            
+            if (timeLeft <= 0) {
+                clearInterval(countdown);
+                enableButton();
+            } else {
+                // UPDATE BOTH TIMERS
+                timerTop.innerText = timeLeft + "s";
+                timerBtn.innerText = timeLeft + "s";
+            }
+        }, 1000);
+    }
 
-	const countdown = setInterval(() => {
-		timeLeft--;
-		
-		if (timeLeft <= 0) {
-			clearInterval(countdown);
-			window.location.href = "/forgot_password"; // Redirect when time hits 0
-		} else {
-			// Update the text on screen
-			timerText.innerText = timeLeft + "s";
-		}
-	}, 1000);
+    function enableButton() {
+        resendBtn.disabled = false;                
+        resendBtn.classList.remove('btn-secondary');
+        resendBtn.classList.add('btn-primary');    
+        resendBtn.innerText = "Resend Code Now";   
+        
+        // Optional: Change top text when expired
+        timerTop.innerText = "Expired";
+    }
 </script>
 
 </body>
