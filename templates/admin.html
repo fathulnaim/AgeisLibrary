@@ -26,13 +26,16 @@
                     <h5 class="mt-2 fw-bold">Add to Inventory</h5>
                     <p class="text-muted small">Expand the library collection</p>
                 </div>
-                {% with messages = get_flashed_messages() %}
-                    {% if messages %}
-                        {% for m in messages %}
-                            <div class="alert alert-danger py-2 small mb-3">⚠️ {{ m }}</div>
-                        {% endfor %}
-                    {% endif %}
-                {% endwith %}
+                {% with messages = get_flashed_messages(with_categories=true) %}
+				  {% if messages %}
+					{% for category, message in messages %}
+					  <div class="alert alert-{{ category if category != 'message' else 'danger' }} py-2 small alert-dismissible fade show" role="alert">
+						{{ message }}
+						<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" style="padding: 0.5rem;"></button>
+					  </div>
+					{% endfor %}
+				  {% endif %}
+				{% endwith %}
 				
 				<!--Admin add book-->
                 <form action="/admin/add" method="POST">

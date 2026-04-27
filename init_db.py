@@ -9,9 +9,7 @@ def initialize():
 
     # 1. To initialize user and admin
     cursor.execute("INSERT INTO users VALUES (?, ?, ?, ?)", 
-                   ("admin", "admin@library.com", generate_password_hash("admin1234"), "admin"))
-    cursor.execute("INSERT INTO users VALUES (?, ?, ?, ?)", 
-                   ("naim", "naim@gmail.com", generate_password_hash("naim1234"), "user"))
+                   ("admin", "admin@library.com", generate_password_hash("admin123"), "admin"))
 
     # 2. List of books
     sample_books = [
