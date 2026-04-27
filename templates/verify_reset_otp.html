@@ -18,14 +18,14 @@
 	<!--Timer-->
     <div class="mb-3">
         <div class="badge bg-light text-dark border p-2">
-            Code expires in: <span id="timer" class="fw-bold text-danger">60</span>s
+            Code expires in: <span id="timer" class="fw-bold text-danger">{{ remaining_time }}s</span>
         </div>
     </div>
 	
 	<!--Message-->
     {% with messages = get_flashed_messages() %}
         {% if messages %}
-            <div class="alert alert-warning py-2 small">{{ messages[0] }}</div>
+            <div class="alert alert-danger py-2 small">{{ messages[0] }}</div>
         {% endif %}
     {% endwith %}
 	
@@ -47,16 +47,21 @@
 
 <!--Javascript here-->
 <script>
-    let timeLeft = 60;
-    const timerElement = document.getElementById('timer');
-    const countdown = setInterval(() => {
-        timeLeft--;
-        timerElement.innerText = timeLeft;
-        if (timeLeft <= 0) {
-            clearInterval(countdown);
-            window.location.href = "/forgot_password";
-        }
-    }, 1000);
+	let timeLeft = {{ remaining_time }}; 
+
+	const timerText = document.getElementById("timer");
+
+	const countdown = setInterval(() => {
+		timeLeft--;
+		
+		if (timeLeft <= 0) {
+			clearInterval(countdown);
+			window.location.href = "/forgot_password"; // Redirect when time hits 0
+		} else {
+			// Update the text on screen
+			timerText.innerText = timeLeft + "s";
+		}
+	}, 1000);
 </script>
 
 </body>

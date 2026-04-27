@@ -145,11 +145,11 @@ function checkStrength() {
     } else if (password.length < 8) {
         text.innerText = "Weak password";
         text.className = "text-danger small";
-    } else if (/[A-Z]/.test(password) && /[0-9]/.test(password)) {
+    } else if (/[A-Z]/.test(password) && /[0-9]/.test(password) && /[!@#$%^&*]/.test(password)) {
         text.innerText = "Strong password";
         text.className = "text-success small";
     } else {
-        text.innerText = "Medium password";
+        text.innerText = "Medium password (Mix letters, numbers & symbols)";
         text.className = "text-warning small";
     }
 }
